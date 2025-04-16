@@ -27,20 +27,19 @@ local_seed = 1;
 experiments = {};
 
 
-lasa_idx = 11; 
-obstacle_type = "ellipse_axis"; % For ellipse-shaped obstacles
-%obstacle_type = "circle";       % For circle-shaped obstacles
-%obstacle_type = "poly";         % For custom semi-algebraic unsafe set 
+lasa_idx = 11;                  % Index of the dataset
+obstacle_type = "ellipse_axis"  % For ellipse-shaped obstacles
+%obstacle_type = "circle"       % For circle-shaped obstacles
+%obstacle_type = "poly"         % For custom semi-algebraic unsafe set 
 
 experiments{end+1}.options = fvbsettings('enable_barrier', true, ...
      'epsilon', 1e-3, 'init_Bc_var', false, 'constraint_version', 3, ...
-     'dataset', 'lasa', 'dataset_opts', struct('idx', 11, 'obstacle_repr', "ellipse_axis"), ...
+     'dataset', 'lasa', 'dataset_opts', struct('idx', lasa_idx, 'obstacle_repr', obstacle_type), ...
      'enable_regularization', false, ...
      'deg_f', 5, 'deg_V', 4, 'deg_B', 4, 'deg_B_slack', 2, ...
      'enable_extra_constraint', true, 'regularization_factor', 0.01, 'seed', local_seed, ...
      'sdpoptions_penbmi', struct('PBM_MAX_ITER', 50, 'PEN_UP', 0.0, 'UM_MAX_ITER', 250));
 experiments{end}.pre = {};
-
 
 
 for curr_exp_idx = 1:length(experiments)
