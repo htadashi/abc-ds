@@ -4,10 +4,10 @@ function poly2file(sympoly, json_filename)
     [sdpexpr_tmp, sdpvars_tmp] = sym_to_sdpvar(sympoly);
     [C, T] = coefficients(sdpexpr_tmp);
     
-    M = 2;
+    M = length(symvar(sympoly));
     xi = sdpvar(M, 1);
     json = struct;
-    json.coefs = C;
+    json.coefs = full(C);
     T_replaced = replace(T, sdpvars_tmp.x, xi);
     json.monomials = sdisplay(T_replaced);
     

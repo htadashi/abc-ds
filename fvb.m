@@ -242,7 +242,7 @@ final_sdpoptions = [tmp_sdpoptions, tmp_sdpoptions_penbmi];
 if restrict_to_convex == 0
     sdp_options = sdpsettings('verbose', 1);
 elseif restrict_to_convex == 1
-    sdp_options = sdpsettings('solver', 'penlab', 'verbose', 1, 'debug', 1, 'showprogress', 1, 'usex0', 1, 'warmstart', 1);
+    sdp_options = sdpsettings('solver', 'penbmi', 'verbose', 1, 'debug', 1, 'showprogress', 1, 'usex0', 1, 'warmstart', 1);
     %                                                                           Default     More Info
     % sdp_options = sdpsettings(sdp_options, 'penbmi.PBM_MAX_ITER', 10000);     % 50        maximum number of iterations of the overall algorithm
     sdp_options = sdpsettings(sdp_options, 'penbmi.OUTPUT', 3);                 % 1

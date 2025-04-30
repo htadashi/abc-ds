@@ -111,6 +111,39 @@ switch options.dataset
 
         initial_set_center = rd.xi0_mean;
         initial_set_radius = 0.05;
+    case 'ssnnds'        
+        lasa_idx = options.dataset_opts.idx;
+        rd = RefData;
+
+        switch lasa_idx
+            case 1
+                folder = 'Angle';
+                obstacle_type = 'Rectangle';
+            case 3
+                folder = 'CShape';
+                obstacle_type = 'Custom';
+            case 5
+                folder = 'GShape';
+                obstacle_type = 'Circle';
+            case 14
+                folder = 'NShape';
+                obstacle_type = 'Triangle';
+            case 15
+                folder = 'PShape';
+                obstacle_type = 'Circle';
+            case 19
+                folder = 'Sine';
+                obstacle_type = 'Circle';
+            case 22
+                folder = 'Sshape';
+                obstacle_type = 'Rectangle';
+            case 24
+                folder = 'Worm';
+                obstacle_type = 'Rectangle';
+        end
+        mat_filename = fullfile('datasets','S2NNDS',folder,[folder '_training.mat']);
+        rd.loadCustom(mat_filename);
+        
 end
 
 
@@ -134,11 +167,30 @@ limits = [x_lowerlim, x_upperlim, y_lowerlim, y_upperlim];
 xi = sdpvar(rd.M, 1);
 
 % initial/safe set
-r1 = initial_set_radius;
-r21 = r1 * r1;
-center1 = initial_set_center;
-initial_set = {};
-initial_set{1} = r21 - sum((xi-center1).^2, 1);
+switch options.dataset
+    case 'lasa'
+        r1 = initial_set_radius;
+        r21 = r1 * r1;
+        center1 = initial_set_center;
+        initial_set = {};
+        initial_set{1} = r21 - sum((xi-center1).^2, 1);
+    case 'ssnnds' % initial set is always a rectangle
+        initial_set = {}; 
+        initial_set_folder = fullfile('datasets','S2NNDS',folder,'initial_set');
+        files = dir(fullfile(initial_set_folder, '*.json'));
+        numJsonFiles = numel(files);
+        for i=1:numJsonFiles
+            if(ismember(i,[1 2]))
+                [initial_set_coefs, initial_set_monomials] = file2poly(fullfile(initial_set_folder, ['poly' num2str(i) '.json']), xi(1));  
+            else
+                [initial_set_coefs, initial_set_monomials] = file2poly(fullfile(initial_set_folder, ['poly' num2str(i) '.json']), xi(2));  
+            end
+            initial_set{i} = dot(initial_set_coefs, initial_set_monomials);
+            % [debug]
+            disp('Initial set polynomials:')
+            sdisplay(initial_set{i})
+        end         
+end
 
 % unsafe set
 unsafe_set = {};
@@ -163,6 +215,39 @@ if options.enable_barrier
         case 'robot'
             [unsafe_set_coefs, unsafe_set_monomials] = file2poly(options.dataset_opts.exp_list + "unsafe_set_poly.json", xi);
             unsafe_set{1} = dot(unsafe_set_coefs, unsafe_set_monomials);
+        case 'ssnnds'
+            switch options.dataset_opts.obstacle_repr     
+                %case "test"
+                %    unsafe_set = {};
+                %    center = [1;1];
+                %    unsafe_set{1} = 0.01 - sum((xi-center).^2, 1);
+                case "poly" 
+                    unsafe_set = {}; 
+                    unsafe_set_folder = fullfile('datasets','S2NNDS',folder,'unsafe_set');
+                    files = dir(fullfile(unsafe_set_folder, '*.json'));
+                    numJsonFiles = numel(files);
+                    for i=1:numJsonFiles
+                        if(strcmp(obstacle_type, 'Rectangle'))
+                            if(ismember(i,[1 2]))
+                                [unsafe_set_coefs, unsafe_set_monomials] = file2poly(fullfile(unsafe_set_folder, ['poly' num2str(i) '.json']), xi(1));  
+                            else
+                                [unsafe_set_coefs, unsafe_set_monomials] = file2poly(fullfile(unsafe_set_folder, ['poly' num2str(i) '.json']), xi(2));  
+                            end
+                        elseif(strcmp(obstacle_type, 'Triangle'))
+                            if(i == 1)
+                                [unsafe_set_coefs, unsafe_set_monomials] = file2poly(fullfile(unsafe_set_folder, ['poly' num2str(i) '.json']), xi(2));  
+                            else
+                                [unsafe_set_coefs, unsafe_set_monomials] = file2poly(fullfile(unsafe_set_folder, ['poly' num2str(i) '.json']), xi);  
+                            end                                
+                        else
+                            [unsafe_set_coefs, unsafe_set_monomials] = file2poly(fullfile(unsafe_set_folder, ['poly' num2str(i) '.json']), xi);  
+                        end
+                        unsafe_set{i} = dot(unsafe_set_coefs, unsafe_set_monomials);
+                        % [debug]
+                        disp('Unsafe set polynomials:');
+                        sdisplay(unsafe_set{i})
+                    end          
+            end
     end
 end
 
@@ -173,6 +258,53 @@ end
 % unsafe_set{4} = xi(2) - workspace(2,1);
 % unsafe_set{5} = workspace(2,2) - xi(2);
 
+%%%%% test unsafe set
+
+% axis limits (depending on ref data)
+xlim([limits(1), limits(2)]);
+ylim([limits(3), limits(4)]);
+axis_limits = axis;
+resolution = 0.01;
+[X, Y] = meshgrid(axis_limits(1)-resolution:resolution:axis_limits(2)+resolution, axis_limits(3)-resolution:resolution:axis_limits(4)+resolution);
+XY = [X(:)'; Y(:)'];
+
+% %%%%%%%%%%%%%%%%%%%% [DEBUG] test plots %%%%%%%%%%%%%%%%%%%%%
+% % plot setup
+% plot_dim1 = 1;
+% plot_dim2 = 2;
+% 
+% fig = setup_figure();
+% 
+% xlabel(strcat('\xi_', int2str(plot_dim1)));
+% ylabel(strcat('\xi_', int2str(plot_dim2)));
+% 
+% % reference trajectories and equilibrium
+% plot_objs = rd.plotLines(plot_dim1, plot_dim2);
+% %%% plot initial set
+% initial_mask = true(size(X));
+% for p = 1:length(initial_set)
+%     fgptilde = sdpvar2fun(initial_set{p}, xi);
+%     Fgptilde = reshape(fgptilde(XY), size(X));
+%     % Update initial mask: intersection = logical AND
+%     initial_mask = initial_mask & (Fgptilde >= 0);
+% end
+% contourf(X, Y, initial_mask, [0.5, 0.5], 'linewidth', 1, 'color', 'cyan', 'facecolor', 'cyan', ...
+%     'facealpha', 0.35, 'displayname', strcat('$\mathcal{D}_{0}$'));
+% hold on;
+% 
+% % plot unsafe set
+% unsafe_mask = true(size(X));
+% for m = 1:length(unsafe_set)
+%     fgm = sdpvar2fun(unsafe_set{m}, xi);
+%     Fgm = reshape(fgm(XY), size(X));
+%     % Update unsafe mask: intersection = logical AND
+%     unsafe_mask = unsafe_mask & (Fgm >= 0);
+% end
+% contourf(X, Y, unsafe_mask, [0.5 0.5], 'linewidth', 1, 'facecolor', 'black', ...
+%          'facealpha', 0.35, 'displayname', '$\mathcal{D}_{u}$');
+% hold on;
+% 
+% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 restrict_to_convex = 1;
 
@@ -292,7 +424,7 @@ if global_options.generate_plots
     plot_dim1 = 1;
     plot_dim2 = 2;
     
-    fig = setup_figure();
+    %fig = setup_figure();
     
     xlabel(strcat('\xi_', int2str(plot_dim1)));
     ylabel(strcat('\xi_', int2str(plot_dim2)));
@@ -337,20 +469,28 @@ if global_options.generate_plots
         hold on;
         
         % plot initial set
+        initial_mask = true(size(X));
         for p = 1:length(initial_set)
             fgptilde = sdpvar2fun(initial_set{p}, xi);
             Fgptilde = reshape(fgptilde(XY), size(X));
-            [cctilde, hhtilde] = contourf(X, Y, Fgptilde, [0, 0], 'linewidth', 1, 'color', 'cyan', 'facecolor', 'cyan', 'facealpha', 0.35, 'displayname', strcat('$\mathcal{D}_{0;', int2str(p), '}$'));
-            hold on;
+            % Update initial mask: intersection = logical AND
+            initial_mask = initial_mask & (Fgptilde >= 0);
         end
+        contourf(X, Y, initial_mask, [0.5, 0.5], 'linewidth', 1, 'color', 'cyan', 'facecolor', 'cyan', ...
+            'facealpha', 0.35, 'displayname', strcat('$\mathcal{D}_{0}$'));
+        hold on;
     
         % plot unsafe set
+        unsafe_mask = true(size(X));
         for m = 1:length(unsafe_set)
             fgm = sdpvar2fun(unsafe_set{m}, xi);
             Fgm = reshape(fgm(XY), size(X));
-            [cc, hh] = contourf(X, Y, Fgm, [0, 0], 'linewidth', 1, 'color', 'black', 'facecolor', 'black', 'facealpha', 0.35, 'displayname', strcat('$\mathcal{D}_{u;', int2str(m), '}$'));
-            hold on;
+            % Update unsafe mask: intersection = logical AND
+            unsafe_mask = unsafe_mask & (Fgm >= 0);
         end
+        contourf(X, Y, unsafe_mask, [0.5 0.5], 'linewidth', 1, 'facecolor', 'black', ...
+                 'facealpha', 0.35, 'displayname', '$\mathcal{D}_{u}$');
+        hold on;
     end
     
     

@@ -26,21 +26,24 @@ rng(global_options.seed, global_options.generator);
 local_seed = 1;
 experiments = {};
 
-
-lasa_idx = 11;                  % Index of the dataset
-obstacle_type = "ellipse_axis"  % For ellipse-shaped obstacles
-%obstacle_type = "circle"       % For circle-shaped obstacles
-%obstacle_type = "poly"         % For custom semi-algebraic unsafe set 
+% 1:  Angle
+% 3:  CShape
+% 5:  GShape
+% 14: NShape
+% 15: PShape
+% 19: Sine
+% 22: SShape
+% 24: Worm
+lasa_idx = 24;                  % Index of the dataset
 
 experiments{end+1}.options = fvbsettings('enable_barrier', true, ...
      'epsilon', 1e-3, 'init_Bc_var', false, 'constraint_version', 3, ...
-     'dataset', 'lasa', 'dataset_opts', struct('idx', lasa_idx, 'obstacle_repr', obstacle_type), ...
+     'dataset', 'ssnnds', 'dataset_opts', struct('idx', lasa_idx, 'obstacle_repr', 'poly'), ...
      'enable_regularization', false, ...
      'deg_f', 5, 'deg_V', 4, 'deg_B', 4, 'deg_B_slack', 2, ...
      'enable_extra_constraint', true, 'regularization_factor', 0.01, 'seed', local_seed, ...
      'sdpoptions_penbmi', struct('PBM_MAX_ITER', 50, 'PEN_UP', 0.0, 'UM_MAX_ITER', 250));
 experiments{end}.pre = {};
-
 
 for curr_exp_idx = 1:length(experiments)
     rng_savepoint = rng;
