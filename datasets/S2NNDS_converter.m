@@ -11,6 +11,11 @@
 % 24: Worm
 lasa_idx = 24; 
 
+% Type of initial set
+% 0: Square
+% 1: Circle
+initial_set_type = 0;
+
 x_s = sym('x', [2; 1]);
 unsafe_p = {};
 
@@ -104,67 +109,72 @@ for i=1:length(unsafe_p)
 end
 
 %% Generate json file encoding initial set
+switch initial_set_type
+    case 0 % Initial set rectangle
+        % Construction of the rectangle:
+        % - we take the demonstrations and compute the minimum and maximum x and y values of their initial points. 
+        %   Then, we specify a tolerance 'radius' around these values, and construct an initial set as a hyperrectangle.
+        
+        load(fullfile('datasets','S2NNDS',folder,'X_test.mat'), 'X_test');
+        X_test = double(X_test);
+        X_test_t = X_test';
+        
+        initial_point_x = zeros(7,1);
+        initial_point_y = zeros(7,1);
+        
+        for k=0:4
+            initial_point_x(k+1) = X_train_t(1,1 + 1000*k);
+            initial_point_y(k+1) = X_train_t(2,1 + 1000*k);
+        end
+        for k=0:1
+            initial_point_x(k+6) = X_test_t(1,1 + 1000*k);
+            initial_point_y(k+6) = X_test_t(2,1 + 1000*k);
+        end
+        
+        x_min = min(initial_point_x);
+        x_max = max(initial_point_x);
+        y_min = min(initial_point_y);
+        y_max = max(initial_point_y);
+        r = initial_set_radius;
+        
+        init_min_x = x_min - r;
+        init_max_x = x_max + r;
+        init_min_y = y_min - r;
+        init_max_y = y_max + r;
+        
+        % Clamp values
+        init_min_x = max(init_min_x, -1);
+        init_max_x = min(init_max_x, 1);
+        init_min_y = max(init_min_y, -1);
+        init_max_y = min(init_max_y, 1);
+        
+        p1 =  x_s(1) - init_min_x;  %  x + r - x_min > 0
+        p2 = -x_s(1) + init_max_x;  % -x + r + x_max > 0
+        p3 =  x_s(2) - init_min_y;  %  y + r - y_min > 0 
+        p4 = -x_s(2) + init_max_y;  % -y + r + y_max > 0
+        
+        initial_set_folder = fullfile('datasets','S2NNDS',folder,'initial_set');
+        
+        poly2file(p1, fullfile(initial_set_folder, 'poly1.json'));
+        poly2file(p2, fullfile(initial_set_folder, 'poly2.json'));
+        poly2file(p3, fullfile(initial_set_folder, 'poly3.json'));
+        poly2file(p4, fullfile(initial_set_folder, 'poly4.json'));
 
-% Initial set rectangle:
-% - we take the demonstrations and compute the minimum and maximum x and y values of their initial points. 
-%   Then, we specify a tolerance 'radius' around these values, and construct an initial set as a hyperrectangle.
-
-load(fullfile('datasets','S2NNDS',folder,'X_test.mat'), 'X_test');
-X_test = double(X_test);
-X_test_t = X_test';
-
-initial_point_x = zeros(7,1);
-initial_point_y = zeros(7,1);
-
-for k=0:4
-    initial_point_x(k+1) = X_train_t(1,1 + 1000*k);
-    initial_point_y(k+1) = X_train_t(2,1 + 1000*k);
+    case 1  % Initial set circle
+        
+        rd = RefData;
+        rd.loadCustom(mat_filename);
+        initial_set_center = rd.xi0_mean;
+        
+        xc = initial_set_center(1);
+        yc = initial_set_center(2);
+         
+        r = initial_set_radius;
+        
+        % Polynomial associated to circle:
+        % r^2 - (x - xc)^2 - (y - yc)^2 > 0
+        p1 = r^2 - (x_s(1) - xc)^2 - (x_s(2) - yc)^2;
+        
+        initial_set_folder = fullfile('datasets','S2NNDS',folder,'initial_set');
+        poly2file(p1, fullfile(initial_set_folder, 'poly1.json'));
 end
-for k=0:1
-    initial_point_x(k+6) = X_test_t(1,1 + 1000*k);
-    initial_point_y(k+6) = X_test_t(2,1 + 1000*k);
-end
-
-x_min = min(initial_point_x);
-x_max = max(initial_point_x);
-y_min = min(initial_point_y);
-y_max = max(initial_point_y);
-r = initial_set_radius;
-
-init_min_x = x_min - r;
-init_max_x = x_max + r;
-init_min_y = y_min - r;
-init_max_y = y_max + r;
-
-% Clamp values
-init_min_x = max(init_min_x, -1);
-init_max_x = min(init_max_x, 1);
-init_min_y = max(init_min_y, -1);
-init_max_y = min(init_max_y, 1);
-
-p1 =  x_s(1) - init_min_x;  %  x + r - x_min > 0
-p2 = -x_s(1) + init_max_x;  % -x + r + x_max > 0
-p3 =  x_s(2) - init_min_y;  %  y + r - y_min > 0 
-p4 = -x_s(2) + init_max_y;  % -y + r + y_max > 0
-
-initial_set_folder = fullfile('datasets','S2NNDS',folder,'initial_set');
-
-poly2file(p1, fullfile(initial_set_folder, 'poly1.json'));
-poly2file(p2, fullfile(initial_set_folder, 'poly2.json'));
-poly2file(p3, fullfile(initial_set_folder, 'poly3.json'));
-poly2file(p4, fullfile(initial_set_folder, 'poly4.json'));
-
-% Initial set circle:
-
-% rd = RefData;
-% rd.loadCustom(mat_filename);
-% initial_set_center = rd.xi0_mean;
-% 
-% xc = initial_set_center(1);
-% yc = initial_set_center(2);
-% 
-% r = initial_set_radius;
-% p1 =  x_s(1) - xc + r;
-% p2 = -x_s(1) + xc + r;
-% p3 = -x_s(2) + yc + r;
-% p4 =  x_s(2) - yc + r;
